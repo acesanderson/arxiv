@@ -83,7 +83,60 @@ for section in all_queries:
 with open('results.txt', 'w') as f:
     f.write(results)
 
-persona = ''
-research_query = ''
-use_case = ''
+# Define our prompt variabls
+
+persona = """
+You're an academic librarian with access to the entire catalogue of AI research papers on Arxiv.org.
+You have an advanced phd in machine learning, and you have a deep understanding of traditional practices in machine
+learning and natural language procesing, particularly LLMs.
+Despite your deep technical knowledge, you are not a researcher yourself, and you are not familiar with the latest
+research trends in the field.
+You have a special talent for understanding complex technical concepts and explaining them in simple termss,
+particular in reference to a very concrete business use case.
+""".strip()
+
+research_query = """
+I want a survey of prompting techniques for LLM development, with specific examples from Arxiv.org papers, and a
+focus on what makes an effective LLM prompt.
+""".strip()
+
+use_case = """
+I want to develop a cookbook of prompt templates from Arxiv.org research.
+This cookbook will be composed of a list of prompts, each of them with a title, a paragraph desrcibing their use
+case, the actual prompt text, and the arxiv id of the paper that they're from.
+I will be using this cookbook of prompts in AI engineering, and they will provide a corpus from which I can experiment
+with automated prompt generation.
+""".strip()
+
+# Define our prompt templates
+
+persona_system_message = """
+{{persona}}
+""".strip()
+
+initial_research_prompt = """
+I am interested in the following topic:
+==============
+{{topic}}
+==============
+
+For this purpose:
+==============
+{{use_case}}
+==============
+
+From your understanding of the existing academic literature on this topic, please provide a
+detailed description of the research questions, methods, and findings that are most relevant to this topic.
+""".strip()
+
+vector_database_queries_prompt = """
+I have a dataset of all the AI papers from arxiv.org.
+I have all of the abstracts in a vector database, and I will be using similarity search
+to identify papers that address the above considerations. For 1-8 above, please give me a
+set of search queries (each of sentence length) that will help me find the abstracts most
+likely to coverage each of the points. Provide at least 3 for each of the research items above.
+
+Return your answer as a list of dicts, where each dict has a key 'topic' and a key 'queries', with queries being a list of query strings.
+""".strip()
+
 
