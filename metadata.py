@@ -1,15 +1,11 @@
 """
-Use SQLite to load the metadata from the database.
-Right now, we are making the database.
+This script accesses the mongodb database and provides importable query function(s).
 """
 
-import pandas as pd
 from arxiv import Paper
-import sqlite3
-import json
+from pymongo import MongoClient
+import pymongo
 
-# load our dataset from the big json file -- this is legacy and will be removed once we are comfortable with our tinydb database.
-# ai = pd.read_json('arxiv-metadata-ai.json', lines=True)
 # in case user needs a handy list of fields (accessed through metadata.fields)
 fields = list(Paper.__dataclass_fields__.keys())
 
@@ -35,74 +31,22 @@ def get_paper(row):
         submitter=row['submitter']
     )
 
-def load_metadata() -> list:
-    """
-    Legacy function. Load the metadata from the big json file.
-    Use the TinyDB database instead.
-    """
-    return [get_paper(row) for index, row in ai.iterrows()]
+"""
+Start mongodb server with:
 
-def write_progress(index: int):
-    """
-    Simple function to write the progress to a file.
-    We have 90k records to process, so we can address errors.
-    """
-    with open('progress.txt', 'w') as f:
-        f.write(str(index))
+`sudo systemctl start mongod`
+"""
 
-def load_progress() -> int:
-    """
-    Simple function to read the progress from a file.
-    Useful for restarting if we have errors.
-    """
-    try:
-        with open('progress.txt', 'r') as f:
-            return int(f.read())
-    except:
-        print("Progress file not created yet.")
+# Replace 'localhost' with the IP address of your MongoDB server if it's not on your local machine.
+# The default port for MongoDB is 27017. Modify if your setup uses a different port.
+client = MongoClient('mongodb://localhost:27017/')
+# Creating a new database called 'research'
+db = client['research']
+# Creating a new collection within the 'research' database called 'papers'
+papers_collection = db['papers']
 
-def load_json1_extension(conn):
-    # Enable extension loading
-    conn.enable_load_extension(True)
-    try:
-        # Attempt to load the JSON1 extension
-        # The actual path to the extension may vary depending on your installation
-        # This is an example path; you'll need to provide the correct path for your system
-        conn.load_extension('libsqlitefunctions.so')
-        # If no error occurs, the extension is successfully loaded
-        print("JSON1 extension loaded successfully.")
-    except sqlite3.OperationalError as e:
-        print(f"Failed to load JSON1 extension: {e}")
-    # Disable extension loading for security
-    conn.enable_load_extension(False)
-    return conn
 
-def query_papers(keyword):
-    """
-    Searches the SQLite database for papers with a title containing the keyword.
-    """
-    # Enable SQLite JSON extension
-    conn = sqlite3.connect('databases/papers_sqlite/papers.db')
-    cursor = conn.cursor()
-    # Load json extension
-    conn = load_json1_extension(conn)
-    # Query to find papers where the title contains the keyword
-    query = """
-    SELECT data
-    FROM papers
-    WHERE json_extract(data, '$.title') LIKE ?
-    """
-    cursor.execute(query, ('%' + keyword + '%',))
-    # Fetch all matching records
-    results = cursor.fetchall()
-    # Close the connection
-    conn.close()
-    # Return the list of matching JSON objects
-    return [json.loads(result[0]) for result in results]
 
-# if __name__ == '__main__':
-# print("Loading papers from json object.")
-# papers = load_metadata()
-# Connect to SQLite database (or create it if it doesn't exist)
 
-query_papers('BART')
+# Close the client connection
+client.close()
