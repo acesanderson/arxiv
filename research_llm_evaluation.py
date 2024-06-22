@@ -129,7 +129,11 @@ For this purpose:
 ==============
 
 From your understanding of the existing academic literature related to this query, please provide a
-detailed description of the research questions, methods, and findings that are most relevant to this topic.
+detailed description of 5-8 research questions, methods, and findings that are most relevant to this topic.
+Aim for specificity -- i.e. not "natural language processing" but "the use of transformers in NLP tasks".
+For each topic, provide:
+(1) topic title
+(2) a paragraph description of the topic at least 200 characters long.
 """.strip())
 
 prompts['vector_database_queries_prompt'] = Prompt("""
@@ -153,36 +157,118 @@ Return your answer as a list of dicts, where each dict has a key 'topic' and a k
 # this is implementation with Chain Framework; we will also implement with Instructor as comparison.
 ## Set up chains; we will refactor this with Instructor at a later day.
 ## new create_messages function works great!
-messages = Chain.create_messages(prompts['persona_system_message'], prompt_variables)
+# messages = Chain.create_messages(prompts['persona_system_message'], prompt_variables)
 
-def initial_research(prompt_variables: dict = prompt_variables, prompts: dict = prompts, messages = messages) -> Response:
-    """
-    Conducts initial research based on the provided prompt variables.
-    Likely need to add more clarity, some examples of output, and json prompting + parsing.
-    """
-    prompt = prompts['initial_research_prompt']
-    model = Model('claude')
-    chain = Chain(prompt, model)
-    response = chain.run(input = prompt_variables, messages = messages)
-    return response
+# def initial_research(prompt_variables: dict = prompt_variables, prompts: dict = prompts, messages = messages) -> Response:
+#     """
+#     Conducts initial research based on the provided prompt variables.
+#     Likely need to add more clarity, some examples of output, and json prompting + parsing.
+#     """
+#     prompt = prompts['initial_research_prompt']
+#     model = Model('claude')
+#     chain = Chain(prompt, model)
+#     response = chain.run(input = prompt_variables, messages = messages)
+#     return response
 
-def compose_vector_database_queries(prompt_variables: dict = prompt_variables, prompts: dict = prompts, messages = messages) -> Response:
-    """
-    For each topic identified from previous research, composes a set of search queries for the vector database.
-    """
-    prompt = prompts['vector_database_queries_prompt']
-    model = Model('claude')
-    chain = Chain(prompt, model)
-    response = chain.run(input = prompt_variables, messages = messages)
-    return response
+# def compose_vector_database_queries(prompt_variables: dict = prompt_variables, prompts: dict = prompts, messages = messages) -> Response:
+#     """
+#     For each topic identified from previous research, composes a set of search queries for the vector database.
+#     """
+#     prompt = prompts['vector_database_queries_prompt']
+#     model = Model('claude')
+#     chain = Chain(prompt, model)
+#     response = chain.run(input = prompt_variables, messages = messages)
+#     return response
 
-response = initial_research()
-messages = response.messages
+# response = initial_research()
+# messages = response.messages
 
-# add topics to prompt variables
-prompt_variables['topics'] = response.content
+# # add topics to prompt variables
+# prompt_variables['topics'] = response.content
 
-# get the response from the vector database queries
-response = compose_vector_database_queries(prompt_variables, prompts, messages)
+# # get the response from the vector database queries
+# response = compose_vector_database_queries(prompt_variables, prompts, messages)
 
 # =============================================================================
+import instructor
+from pydantic import BaseModel, constr          # constr is a string type with constraints, max_length and min_length
+from anthropic import Anthropic
+from Chain import Chain
+
+# Add the OpenAI API key to the environment (locals())
+anthropic_api_key = Chain.api_keys['ANTHROPIC_API_KEY']
+
+client = instructor.from_anthropic(Anthropic())
+
+# Define your desired output structure as Pydantic classes
+class Topic(BaseModel):
+    topic: str
+    description: constr(min_length=200)
+
+class Topics(BaseModel):
+    topics: list[Topic]
+
+class TopicQueries(BaseModel):
+    topic: str
+    queries: list[str]
+
+class TopicQueriesList(BaseModel):
+    topics: list[TopicQueries]
+
+# Our query function
+def instructor_query(query, model='claude-3-5-sonnet-20240620', max_tokens=1024, response_model = None, system_message = ""):
+    response = client.messages.create(
+        model=model,
+        max_tokens=max_tokens,
+        messages=[
+            {
+                "role": "user",
+                "content": query,
+            }
+        ],
+        system = system_message,
+        response_model=response_model,
+    )
+    return response
+
+# render our prompts
+persona_system_message = prompts['persona_system_message'].render(prompt_variables)
+research_prompt = prompts['initial_research_prompt'].render(prompt_variables)
+
+# first LLM call
+response = instructor_query(research_prompt, response_model=Topics, system_message=persona_system_message)
+
+# print out topics into a string so we can pass to next LLM call
+topics = ""
+for topic in response.topics:
+    topics += topic.topic + '\n'
+    topics += topic.description + '\n\n'
+topics = topics.strip()
+
+prompt_variables['topics'] = topics
+
+# render our second prompt
+vector_db_prompt = prompts['vector_database_queries_prompt'].render(prompt_variables)
+
+# second LLM call
+response = instructor_query(vector_db_prompt, response_model=TopicQueriesList, system_message=persona_system_message)
+topicquerieslist = response.topics
+
+# flatten the list of topics and queries
+queries = []
+for topic in topicquerieslist:
+    for query in topic.queries:
+        queries.append({'topic': topic.topic, 'query': query})
+
+# search the papers
+for query in queries:
+    query['papers'] = query_papers(query['query'])
+
+# flatten the papers
+papers = []
+for query in queries:
+    for paper in query['papers']['ids'][0]:
+        paper = paper.replace('\n','')
+        paper = paper.replace('  ', ' ')
+        papers.append({'topic': query['topic'], 'query': query['query'], 'paper': paper})
+
