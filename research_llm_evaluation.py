@@ -1,6 +1,7 @@
 from query_papers import query_db
 from Chain import Chain, Prompt, Model, Response
 import re
+from jinja2 import Template
 
 queries = """
 1. Quality Metrics:
@@ -83,9 +84,10 @@ for section in all_queries:
 with open('results.txt', 'w') as f:
     f.write(results)
 
-# Define our prompt variabls
+# Define our prompt variables
+prompt_variables = {}
 
-persona = """
+prompt_variables['persona'] = """
 You're an academic librarian with access to the entire catalogue of AI research papers on Arxiv.org.
 You have an advanced phd in machine learning, and you have a deep understanding of traditional practices in machine
 learning and natural language procesing, particularly LLMs.
@@ -95,12 +97,12 @@ You have a special talent for understanding complex technical concepts and expla
 particular in reference to a very concrete business use case.
 """.strip()
 
-research_query = """
+prompt_variables['research_query'] = """
 I want a survey of prompting techniques for LLM development, with specific examples from Arxiv.org papers, and a
 focus on what makes an effective LLM prompt.
 """.strip()
 
-use_case = """
+prompt_variables['use_case'] = """
 I want to develop a cookbook of prompt templates from Arxiv.org research.
 This cookbook will be composed of a list of prompts, each of them with a title, a paragraph desrcibing their use
 case, the actual prompt text, and the arxiv id of the paper that they're from.
@@ -109,15 +111,16 @@ with automated prompt generation.
 """.strip()
 
 # Define our prompt templates
+prompts = {}
 
-persona_system_message = """
+prompts['persona_system_message'] = Prompt("""
 {{persona}}
-""".strip()
+""".strip())
 
-initial_research_prompt = """
-I am interested in the following topic:
+prompts['initial_research_prompt'] = Prompt("""
+I have the following research query:
 ==============
-{{topic}}
+{{research_query}}
 ==============
 
 For this purpose:
@@ -125,18 +128,35 @@ For this purpose:
 {{use_case}}
 ==============
 
-From your understanding of the existing academic literature on this topic, please provide a
+From your understanding of the existing academic literature related to this query, please provide a
 detailed description of the research questions, methods, and findings that are most relevant to this topic.
-""".strip()
+""".strip())
 
-vector_database_queries_prompt = """
+prompts['vector_database_queries_prompt'] = Template("""
 I have a dataset of all the AI papers from arxiv.org.
 I have all of the abstracts in a vector database, and I will be using similarity search
-to identify papers that address the above considerations. For 1-8 above, please give me a
-set of search queries (each of sentence length) that will help me find the abstracts most
-likely to coverage each of the points. Provide at least 3 for each of the research items above.
+to identify papers that address the above considerations.
+
+Here are some research topics:
+
+{{topics}}
+
+For each of the above topics, please give me a set of search queries (each of sentence
+length) that will help me find the abstracts most likely to coverage each of the points. 
+Provide at least 3 for each of the research items above.
 
 Return your answer as a list of dicts, where each dict has a key 'topic' and a key 'queries', with queries being a list of query strings.
-""".strip()
+""".strip())
 
+# Set up chains; we will refactor this with Instructor at a later day.
+messages = [{'role': 'system', 'content': jinja2.Template('persona_system_message').render(prompt_variables)}]
+
+def initial_research(prompt_variables: dict = prompt_variables, prompts: dict = prompts) -> str:
+    prompt = prompts['initial_research_prompt']
+    model = Model('claude')
+    model.chat()
+    chain = Chain(prompt, model)
+    response = chain.run(prompt_variables)
+    content = response.content
+    return content
 

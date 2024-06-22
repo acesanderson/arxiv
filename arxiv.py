@@ -86,7 +86,6 @@ def load_progress():
 
 if __name__ == '__main__':
     start_index = load_progress()
-
     for index, row in ai.iterrows():
         if index < start_index:
             continue  # skip to the point we restarted

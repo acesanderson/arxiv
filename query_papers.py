@@ -7,7 +7,6 @@ Upcoming functionality:
 - fine-tuning a language model on 90,000+ papers (at 3 seconds a paper, that's 75 hours and ~2 terabytes of data).
 """
 
-from arxiv import Paper
 import chromadb
 import random
 import argparse
@@ -23,10 +22,10 @@ Flow Engineering
 """.strip().split("\n")
 
 # create chroma db
-client = chromadb.PersistentClient(path="vectordbs/arxiv")
+client = chromadb.PersistentClient(path="databases/arxiv-vectordb")
 collection = client.get_collection("AI_papers_6_15_2024")
 
-def query_db(query, k = 10):
+def query_papers(query, k = 10):
     """
     Queries the chroma db for the given query.
     """
