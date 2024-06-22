@@ -9,14 +9,14 @@ import sqlite3
 import json
 
 # load our dataset from the big json file -- this is legacy and will be removed once we are comfortable with our tinydb database.
-ai = pd.read_json('arxiv-metadata-ai.json', lines=True)
+# ai = pd.read_json('arxiv-metadata-ai.json', lines=True)
 # in case user needs a handy list of fields (accessed through metadata.fields)
 fields = list(Paper.__dataclass_fields__.keys())
 
 # load the arxiv metadata from the big json file
 def get_paper(row):
     """
-    Legacy function; only useful in converting json into Paper objects.
+    Covert json object to Paper object.
     """
     return Paper(
         title=row['title'],
@@ -61,28 +61,48 @@ def load_progress() -> int:
     except:
         print("Progress file not created yet.")
 
-if __name__ == '__main__':
-    print("Loading papers from json object.")
-    papers = load_metadata()
-    # Connect to SQLite database (or create it if it doesn't exist)
+def load_json1_extension(conn):
+    # Enable extension loading
+    conn.enable_load_extension(True)
+    try:
+        # Attempt to load the JSON1 extension
+        # The actual path to the extension may vary depending on your installation
+        # This is an example path; you'll need to provide the correct path for your system
+        conn.load_extension('libsqlitefunctions.so')
+        # If no error occurs, the extension is successfully loaded
+        print("JSON1 extension loaded successfully.")
+    except sqlite3.OperationalError as e:
+        print(f"Failed to load JSON1 extension: {e}")
+    # Disable extension loading for security
+    conn.enable_load_extension(False)
+    return conn
+
+def query_papers(keyword):
+    """
+    Searches the SQLite database for papers with a title containing the keyword.
+    """
+    # Enable SQLite JSON extension
     conn = sqlite3.connect('databases/papers_sqlite/papers.db')
     cursor = conn.cursor()
-    cursor.execute('''
-CREATE TABLE IF NOT EXISTS papers (
-    id TEXT PRIMARY KEY,
-    data JSON
-)
-''')
-    index = load_progress()
-    try:
-        for index, paper in enumerate(papers):
-            print(f'Processing paper {index+1} of {len(papers)}')
-            # Convert the dictionary to a JSON string
-            json_data = json.dumps(paper.__dict__)
-            cursor.execute('INSERT INTO papers (id, data) VALUES (?, ?)', (paper.id, json_data))
-    except:
-        write_progress(index)
-        conn.commit()
-        conn.close()
-        raise
+    # Load json extension
+    conn = load_json1_extension(conn)
+    # Query to find papers where the title contains the keyword
+    query = """
+    SELECT data
+    FROM papers
+    WHERE json_extract(data, '$.title') LIKE ?
+    """
+    cursor.execute(query, ('%' + keyword + '%',))
+    # Fetch all matching records
+    results = cursor.fetchall()
+    # Close the connection
+    conn.close()
+    # Return the list of matching JSON objects
+    return [json.loads(result[0]) for result in results]
 
+# if __name__ == '__main__':
+# print("Loading papers from json object.")
+# papers = load_metadata()
+# Connect to SQLite database (or create it if it doesn't exist)
+
+query_papers('BART')
