@@ -1,4 +1,4 @@
-from query_papers import query_db
+from query_papers import query_papers
 from Chain import Chain, Prompt, Model, Response
 import re
 from jinja2 import Template
@@ -62,7 +62,7 @@ for section in sections:
     queries = re.findall('- (.+)', section)
     query_dicts = []
     for query in queries:
-        queries_dict = {'query': query, 'papers': query_db(query)}
+        queries_dict = {'query': query, 'papers': query_papers(query)}
         query_dicts.append(queries_dict)
     all_queries.append({'title': title, 'queries': query_dicts})
 
@@ -94,7 +94,7 @@ learning and natural language procesing, particularly LLMs.
 Despite your deep technical knowledge, you are not a researcher yourself, and you are not familiar with the latest
 research trends in the field.
 You have a special talent for understanding complex technical concepts and explaining them in simple termss,
-particular in reference to a very concrete business use case.
+particularly in reference to a very concrete business use case.
 """.strip()
 
 prompt_variables['research_query'] = """
@@ -132,14 +132,15 @@ From your understanding of the existing academic literature related to this quer
 detailed description of the research questions, methods, and findings that are most relevant to this topic.
 """.strip())
 
-prompts['vector_database_queries_prompt'] = Template("""
+prompts['vector_database_queries_prompt'] = Prompt("""
 I have a dataset of all the AI papers from arxiv.org.
 I have all of the abstracts in a vector database, and I will be using similarity search
 to identify papers that address the above considerations.
 
 Here are some research topics:
-
+==============
 {{topics}}
+==============
 
 For each of the above topics, please give me a set of search queries (each of sentence
 length) that will help me find the abstracts most likely to coverage each of the points. 
@@ -148,15 +149,40 @@ Provide at least 3 for each of the research items above.
 Return your answer as a list of dicts, where each dict has a key 'topic' and a key 'queries', with queries being a list of query strings.
 """.strip())
 
-# Set up chains; we will refactor this with Instructor at a later day.
-messages = [{'role': 'system', 'content': jinja2.Template('persona_system_message').render(prompt_variables)}]
+# =============================================================================
+# this is implementation with Chain Framework; we will also implement with Instructor as comparison.
+## Set up chains; we will refactor this with Instructor at a later day.
+## new create_messages function works great!
+messages = Chain.create_messages(prompts['persona_system_message'], prompt_variables)
 
-def initial_research(prompt_variables: dict = prompt_variables, prompts: dict = prompts) -> str:
+def initial_research(prompt_variables: dict = prompt_variables, prompts: dict = prompts, messages = messages) -> Response:
+    """
+    Conducts initial research based on the provided prompt variables.
+    Likely need to add more clarity, some examples of output, and json prompting + parsing.
+    """
     prompt = prompts['initial_research_prompt']
     model = Model('claude')
-    model.chat()
     chain = Chain(prompt, model)
-    response = chain.run(prompt_variables)
-    content = response.content
-    return content
+    response = chain.run(input = prompt_variables, messages = messages)
+    return response
 
+def compose_vector_database_queries(prompt_variables: dict = prompt_variables, prompts: dict = prompts, messages = messages) -> Response:
+    """
+    For each topic identified from previous research, composes a set of search queries for the vector database.
+    """
+    prompt = prompts['vector_database_queries_prompt']
+    model = Model('claude')
+    chain = Chain(prompt, model)
+    response = chain.run(input = prompt_variables, messages = messages)
+    return response
+
+response = initial_research()
+messages = response.messages
+
+# add topics to prompt variables
+prompt_variables['topics'] = response.content
+
+# get the response from the vector database queries
+response = compose_vector_database_queries(prompt_variables, prompts, messages)
+
+# =============================================================================
