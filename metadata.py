@@ -1,6 +1,5 @@
 import pandas as pd
 from arxiv import Paper
-from dataclasses import dataclass
 from tinydb import TinyDB, Query
 
 # Read the entire JSON file (only feasible if you have enough RAM or if you do this in chunks)
@@ -13,26 +12,6 @@ from tinydb import TinyDB, Query
 
 # load the ai papers
 ai = pd.read_json('arxiv-metadata-ai.json', lines=True)
-
-class Paper:
-    title: str
-    abstract: str
-    authors: list
-    categories: list
-    doi: str
-    arxiv_id: str
-    published: str
-    id: str
-    comments: str
-    license: str
-    journal_ref: str
-    report_no: str
-    authors_parsed: str
-    submitter: str
-
-
-
-
 
 def get_paper(row):
     """
