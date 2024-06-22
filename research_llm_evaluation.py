@@ -1,88 +1,6 @@
 from query_papers import query_papers
 from Chain import Chain, Prompt, Model, Response
 import re
-from jinja2 import Template
-
-queries = """
-1. Quality Metrics:
-
-- Evaluating coherence and factual accuracy in AI-generated text
-- Metrics for assessing relevance and grammatical correctness of LLM outputs
-- Automated measurement of style consistency in language model generations
-
-2. Cross-Domain Evaluation:
-
-- Assessing LLM performance across multiple domains and tasks
-- Evaluating AI-generated content in diverse fields like creative writing and technical documentation
-- Cross-domain generalization of language model evaluation techniques
-
-3. Scalability:
-
-- Efficient methods for evaluating large volumes of AI-generated text
-- Scalable approaches to assessing entire datasets of LLM outputs
-- High-throughput evaluation techniques for massive language model generations
-
-4. Consistency:
-
-- Measuring consistency of LLM-based evaluations across multiple runs
-- Assessing reliability of AI evaluations using different models
-- Techniques for ensuring stable and reproducible AI-based assessments
-
-5. Correlation with Human Judgment:
-
-- Comparing AI-based evaluations with expert human assessments
-- Methods for aligning automated text evaluation with human judgments
-- Bridging the gap between machine and human evaluation of AI-generated content
-
-6. Multi-Model Consensus:
-
-- Ensemble approaches for evaluating AI-generated text
-- Combining multiple LLMs for more robust content assessment
-- Consensus-based evaluation systems using diverse language models
-
-7. Fine-tuning for Evaluation:
-
-- Specialized fine-tuning techniques for AI evaluation tasks
-- Improving LLM performance in assessing other AI-generated content
-- Transfer learning approaches for enhancing AI evaluation capabilities
-
-8. Prompt Engineering for Evaluation:
-
-- Optimizing prompts for better AI-based text evaluation
-- Techniques for designing effective evaluation prompts for language models
-- Impact of prompt engineering on the quality of AI-generated assessments
-""".strip()
-
-# split queries into the numbered sections
-sections = re.split('^[0-9]+. ', queries, flags=re.MULTILINE)[1:]
-
-all_queries = []
-for section in sections:
-    title = re.findall('^(.+):', section)[0]
-    queries = re.findall('- (.+)', section)
-    query_dicts = []
-    for query in queries:
-        queries_dict = {'query': query, 'papers': query_papers(query)}
-        query_dicts.append(queries_dict)
-    all_queries.append({'title': title, 'queries': query_dicts})
-
-# get all of the paper titles for an individual query
-all_queries[0]['queries'][0]['papers']['ids']
-
-# get all of the paper titles, total
-results = ""
-for section in all_queries:
-    results += section['title'] + '\n'
-    for query in section['queries']:
-        results += '\t' + query['query'] + '\n'
-        for paper in section['queries'][0]['papers']['ids'][0]:
-            # our ids unfortunately have newlines and doubled spaces within them, luckily we can use the arxiv id if we need.
-            paper = paper.replace('\n','')
-            paper = paper.replace('  ', ' ')
-            results += '\t\t' + paper + '\n'
-
-with open('results.txt', 'w') as f:
-    f.write(results)
 
 # Define our prompt variables
 prompt_variables = {}
@@ -97,17 +15,29 @@ You have a special talent for understanding complex technical concepts and expla
 particularly in reference to a very concrete business use case.
 """.strip()
 
+# prompt_variables['research_query'] = """
+# I want a survey of prompting techniques for LLM development, with specific examples from Arxiv.org papers, and a
+# focus on what makes an effective LLM prompt.
+# """.strip()
+
+# prompt_variables['use_case'] = """
+# I want to develop a cookbook of prompt templates from Arxiv.org research.
+# This cookbook will be composed of a list of prompts, each of them with a title, a paragraph desrcibing their use
+# case, the actual prompt text, and the arxiv id of the paper that they're from.
+# I will be using this cookbook of prompts in AI engineering, and they will provide a corpus from which I can experiment
+# with automated prompt generation.
+# """.strip()
+
 prompt_variables['research_query'] = """
-I want a survey of prompting techniques for LLM development, with specific examples from Arxiv.org papers, and a
-focus on what makes an effective LLM prompt.
+How do you evaluate the quality of LLM output using LLMs? I am NOT interesting in evaluating LLM models, but rather
+the prompt engineering and flow orchestration that be utilized to evaluate the quality of generated content.
 """.strip()
 
 prompt_variables['use_case'] = """
-I want to develop a cookbook of prompt templates from Arxiv.org research.
-This cookbook will be composed of a list of prompts, each of them with a title, a paragraph desrcibing their use
-case, the actual prompt text, and the arxiv id of the paper that they're from.
-I will be using this cookbook of prompts in AI engineering, and they will provide a corpus from which I can experiment
-with automated prompt generation.
+I will be using LLMs to publish content, like text courses and assesments and other text-based content.
+My main challenge is to generate high-quality content that is both engaging and informative, and I want to
+create prompt flows and experiment with prompt engineering as well as employ other LLM development techniques in order
+to optimize the final product. #1 on my agenda is identifying ways to score the quality of the LLM-generated content with LLMs.
 """.strip()
 
 # Define our prompt templates
@@ -149,9 +79,9 @@ Here are some research topics:
 For each of the above topics, please give me a set of search queries (each of sentence
 length) that will help me find the abstracts most likely to coverage each of the points. 
 Provide at least 3 for each of the research items above.
-
-Return your answer as a list of dicts, where each dict has a key 'topic' and a key 'queries', with queries being a list of query strings.
 """.strip())
+
+# Return your answer as a list of dicts, where each dict has a key 'topic' and a key 'queries', with queries being a list of query strings.
 
 # =============================================================================
 # this is implementation with Chain Framework; we will also implement with Instructor as comparison.
@@ -236,13 +166,14 @@ persona_system_message = prompts['persona_system_message'].render(prompt_variabl
 research_prompt = prompts['initial_research_prompt'].render(prompt_variables)
 
 # first LLM call
-response = instructor_query(research_prompt, response_model=Topics, system_message=persona_system_message)
+research_response = instructor_query(research_prompt, response_model=Topics, system_message=persona_system_message)
 
 # print out topics into a string so we can pass to next LLM call
 topics = ""
-for topic in response.topics:
+for topic in research_response.topics:
     topics += topic.topic + '\n'
     topics += topic.description + '\n\n'
+
 topics = topics.strip()
 
 prompt_variables['topics'] = topics
@@ -251,24 +182,26 @@ prompt_variables['topics'] = topics
 vector_db_prompt = prompts['vector_database_queries_prompt'].render(prompt_variables)
 
 # second LLM call
-response = instructor_query(vector_db_prompt, response_model=TopicQueriesList, system_message=persona_system_message)
-topicquerieslist = response.topics
+queries_response = instructor_query(vector_db_prompt, response_model=TopicQueriesList, system_message=persona_system_message)
+topicquerieslist = queries_response.topics
 
 # flatten the list of topics and queries
-queries = []
-for topic in topicquerieslist:
-    for query in topic.queries:
-        queries.append({'topic': topic.topic, 'query': query})
+final_queries = []
+for q in topicquerieslist:
+    for final_query in q.queries:
+        final_queries.append({'topic': topic.topic, 'query':final_query})
 
 # search the papers
-for query in queries:
-    query['papers'] = query_papers(query['query'])
+for q in final_queries:
+    q['papers'] = query_papers(q['query'])
 
 # flatten the papers
 papers = []
-for query in queries:
+
+for query in final_queries:
     for paper in query['papers']['ids'][0]:
         paper = paper.replace('\n','')
         paper = paper.replace('  ', ' ')
         papers.append({'topic': query['topic'], 'query': query['query'], 'paper': paper})
 
+# We now have the papers. Need to be able to implement retries.

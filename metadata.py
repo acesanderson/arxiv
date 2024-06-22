@@ -1,11 +1,15 @@
+"""
+Use SQLite to load the metadata from the database.
+Right now, we are making the database.
+"""
+
 import pandas as pd
 from arxiv import Paper
-from tinydb import TinyDB, Query
+import sqlite3
+import json
 
 # load our dataset from the big json file -- this is legacy and will be removed once we are comfortable with our tinydb database.
 ai = pd.read_json('arxiv-metadata-ai.json', lines=True)
-# load our tinydb database
-db = TinyDB('databases/tinydb/papers.json')
 # in case user needs a handy list of fields (accessed through metadata.fields)
 fields = list(Paper.__dataclass_fields__.keys())
 
@@ -38,35 +42,47 @@ def load_metadata() -> list:
     """
     return [get_paper(row) for index, row in ai.iterrows()]
 
-def query_metadata(query: str, field: str = "title", no_results = None) -> list:
+def write_progress(index: int):
     """
-    Query the metadata using a search term.
-    To get a list of fields, access metadata.fields (it's a list).
+    Simple function to write the progress to a file.
+    We have 90k records to process, so we can address errors.
     """
-    User = Query()
-    results = db.search(User[field] == query)
-    return results[:no_results]
+    with open('progress.txt', 'w') as f:
+        f.write(str(index))
 
-papers = load_metadata()
+def load_progress() -> int:
+    """
+    Simple function to read the progress from a file.
+    Useful for restarting if we have errors.
+    """
+    try:
+        with open('progress.txt', 'r') as f:
+            return int(f.read())
+    except:
+        print("Progress file not created yet.")
 
+if __name__ == '__main__':
+    print("Loading papers from json object.")
+    papers = load_metadata()
+    # Connect to SQLite database (or create it if it doesn't exist)
+    conn = sqlite3.connect('databases/papers_sqlite/papers.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+CREATE TABLE IF NOT EXISTS papers (
+    id TEXT PRIMARY KEY,
+    data JSON
+)
+''')
+    index = load_progress()
+    try:
+        for index, paper in enumerate(papers):
+            print(f'Processing paper {index+1} of {len(papers)}')
+            # Convert the dictionary to a JSON string
+            json_data = json.dumps(paper.__dict__)
+            cursor.execute('INSERT INTO papers (id, data) VALUES (?, ?)', (paper.id, json_data))
+    except:
+        write_progress(index)
+        conn.commit()
+        conn.close()
+        raise
 
-def insert_object(obj):
-    """ Insert a Python object into the database """
-    db.insert(obj)
-
-def search_object(name):
-    """ Search for objects by name """
-    User = Query()
-    return db.search(User.name == name)
-
-# Usage
-insert_object({'name': 'John Doe', 'age': 30})  # Example object
-result = search_object('John Doe')
-print(result)
-
-for index, paper in enumerate(papers):
-    print(f"Inserting paper {index + 1} of {len(papers)}")
-    insert_object(paper.__dict__)
-
-
-# ai = pd.read_json('arxiv-metadata-ai.json', lines=True)
