@@ -1,6 +1,7 @@
 import pandas as pd
-import chromadb
+from arxiv import Paper
 from dataclasses import dataclass
+from tinydb import TinyDB, Query
 
 # Read the entire JSON file (only feasible if you have enough RAM or if you do this in chunks)
 # df = pd.read_json('arxiv-metadata-oai-snapshot.json', lines=True)
@@ -13,7 +14,6 @@ from dataclasses import dataclass
 # load the ai papers
 ai = pd.read_json('arxiv-metadata-ai.json', lines=True)
 
-@dataclass
 class Paper:
     title: str
     abstract: str
@@ -22,6 +22,17 @@ class Paper:
     doi: str
     arxiv_id: str
     published: str
+    id: str
+    comments: str
+    license: str
+    journal_ref: str
+    report_no: str
+    authors_parsed: str
+    submitter: str
+
+
+
+
 
 def get_paper(row):
     """
@@ -34,7 +45,14 @@ def get_paper(row):
         categories=row['categories'],
         doi=row['doi'],
         arxiv_id=row['id'],
-        published=row['update_date']
+        published=row['update_date'],
+        id=row['id'],
+        comments=row['comments'],
+        license=row['license'],
+        journal_ref=row['journal-ref'],
+        report_no=row['report-no'],
+        authors_parsed=row['authors_parsed'],
+        submitter=row['submitter']
     )
 
 def load_metadata() -> list:
@@ -44,3 +62,19 @@ def load_metadata() -> list:
     return [get_paper(row) for index, row in ai.iterrows()]
 
 papers = load_metadata()
+
+db = TinyDB('databases/tinydb/db.json')
+
+def insert_object(obj):
+    """ Insert a Python object into the database """
+    db.insert(obj)
+
+def search_object(name):
+    """ Search for objects by name """
+    User = Query()
+    return db.search(User.name == name)
+
+# Usage
+insert_object({'name': 'John Doe', 'age': 30})  # Example object
+result = search_object('John Doe')
+print(result)

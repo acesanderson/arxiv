@@ -39,6 +39,13 @@ class Paper:
     doi: str
     arxiv_id: str
     published: str
+    id: str
+    comments: str
+    license: str
+    journal_ref: str
+    report_no: str
+    authors_parsed: str
+    submitter: str
 
 def get_paper(row):
     """
@@ -84,13 +91,14 @@ def load_progress():
     except FileNotFoundError:
         return 0  # if no file exists, start from the beginning
 
-if __name__ == '__main__':
-    start_index = load_progress()
-    for index, row in ai.iterrows():
-        if index < start_index:
-            continue  # skip to the point we restarted
-        paper = get_paper(row)
-        key, value = create_keys_and_values(paper)
-        collection.add(documents=[value], ids=[key])
-        print(f"Processed paper {index} of {len(ai)}:\t\t{key}")
-        save_progress(index)
+# this creates the vector database
+# if __name__ == '__main__':
+#     start_index = load_progress()
+#     for index, row in ai.iterrows():
+#         if index < start_index:
+#             continue  # skip to the point we restarted
+#         paper = get_paper(row)
+#         key, value = create_keys_and_values(paper)
+#         collection.add(documents=[value], ids=[key])
+#         print(f"Processed paper {index} of {len(ai)}:\t\t{key}")
+#         save_progress(index)
