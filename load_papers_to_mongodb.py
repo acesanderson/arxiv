@@ -23,7 +23,7 @@ def get_paper(row):
         categories=row['categories'],
         doi=row['doi'],
         arxiv_id=row['id'],
-        published=row['update_date'],
+        update_date=row['update_date'],
         id=row['id'],
         comments=row['comments'],
         license=row['license'],
@@ -78,6 +78,9 @@ db = client['research']
 
 # Creating a new collection within the 'research' database called 'papers'
 papers_collection = db['papers']
+
+# to clear collection if needed
+# papers_collection.delete_many({})
 
 # Assume 'papers' is your list of 90,000 JSON objects
 # If 'papers' is not yet defined, you need to define it or load it from your source

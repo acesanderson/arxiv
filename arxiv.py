@@ -23,7 +23,7 @@ class Paper:
     categories: list
     doi: str
     arxiv_id: str
-    published: str
+    update_date: str
     id: str
     comments: str
     license: str
