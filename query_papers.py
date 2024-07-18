@@ -22,7 +22,7 @@ Flow Engineering
 """.strip().split("\n")
 
 # create chroma db
-client = chromadb.PersistentClient(path="/home/bianders/Brian_Code/arxiv/databases/arxiv-vectordb")
+client = chromadb.PersistentClient(path="/home/bianders/Brian_Code/databases/arxiv-vectordb")
 collection = client.get_collection("AI_papers_6_15_2024")
 
 def query_papers(query, k = 10):
