@@ -122,7 +122,7 @@ async def query_papers(query: str, num_results: int = 5):
     return results
 
 
-def query_video_transcripts_sync(query: str, num_results: int = 5):
+def query_papers_sync(query: str, num_results: int = 5):
     results = asyncio.run(query_papers(query, num_results))
     return results
 
@@ -134,6 +134,7 @@ def pretty_print_results(results):
         )
 
 
+# When you need to load papers afresh
 # async def main():
 #     client = await chromadb.AsyncHttpClient(port=8001)
 #     await heartbeat(client)
@@ -156,7 +157,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     if args.query:
-        results = query_video_transcripts_sync(args.query)
+        results = query_papers_sync(args.query)
         pretty_print_results(results)
     else:
         sys.exit()

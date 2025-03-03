@@ -22,6 +22,14 @@ def get_all_papers(papers_collection=papers_collection) -> list[Paper]:
     return [Paper(**result) for result in results]
 
 
+def get_all_ids(papers_collection=papers_collection) -> set[str]:
+    """
+    Get all paper IDs from the MongoDB collection.
+    """
+    results = papers_collection.find({}, {"id": 1})
+    return {result["id"] for result in results}
+
+
 def get_paper_by_id(paper_id: str, papers_collection=papers_collection) -> Paper:
     """
     Get a paper by its ID from the MongoDB collection.
