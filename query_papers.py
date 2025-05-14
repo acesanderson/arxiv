@@ -12,13 +12,9 @@ import random
 import argparse
 
 queries = """
-Prompt engineering for agents
-Multi-agent reinforcement learning
-Evaluation of LLM responses
-Quality rubrics for evaluating LLM responses
-RAPTOR
-Metaprompting
-Flow Engineering
+Generating educational materials with large language models
+Applications of Natural Language Processing to curriculum development
+The role of LLMs in creating educational content
 """.strip().split("\n")
 
 # create chroma db
